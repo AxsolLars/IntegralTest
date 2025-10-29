@@ -1,0 +1,8 @@
+[connection]
+user = "svc_data_gen"
+account = "OSCGTUT-OK42230.snowflakecomputing.com"
+warehouse = "COMPUTE_WH"
+database = "TESTING_DB"
+schema = "INTEGRAL_TEST"
+role = "SYSADMIN"
+private_key_path = "/home/Lars/snowflake_keys/svc_key.p8"
