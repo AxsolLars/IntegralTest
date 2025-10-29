@@ -1,0 +1,1 @@
+CALL integrate_stream();
