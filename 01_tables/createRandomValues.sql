@@ -5,7 +5,7 @@ USE ROLE ROLE_TEST_ETL;
 
 CREATE OR REPLACE TABLE random_values (
     id INT AUTOINCREMENT,
-    timestamp TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    timestamp TIMESTAMP_NTZ,
     value FLOAT,
     CONSTRAINT pk_random_values PRIMARY KEY (id)
 );
