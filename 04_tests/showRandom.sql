@@ -1,0 +1,4 @@
+SELECT *
+FROM random_values
+ORDER BY id DESC
+LIMIT 10;

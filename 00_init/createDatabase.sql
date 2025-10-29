@@ -1,4 +1,4 @@
-USE ROLE SYSADMIN;
+USE ROLE ROLE_TEST_ETL;
 USE WAREHOUSE compute_wh;
 
 CREATE OR REPLACE DATABASE testing_db COMMENT = 'Testing sandbox database';

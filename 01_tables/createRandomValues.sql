@@ -1,7 +1,7 @@
 USE DATABASE testing_db;
 USE SCHEMA integral_test;
 
-USE ROLE SYSADMIN;
+USE ROLE ROLE_TEST_ETL;
 
 CREATE OR REPLACE TABLE random_values (
     id INT AUTOINCREMENT,
