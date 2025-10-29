@@ -37,4 +37,6 @@ def connect_to_snowflake():
     )
     
 if __name__ == "__main__":
-    connect_to_snowflake()
+    conn = connect_to_snowflake()
+    print("✅ Successfully connected to Snowflake as", conn.user)
+    conn.close()
