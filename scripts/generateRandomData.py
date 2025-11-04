@@ -1,13 +1,13 @@
 from scripts.connectToSnowflake import connect_to_snowflake
 import time, random
-from datetime import datetime
+from datetime import datetime, timezone
 
 def generate_random_value(low: float = -10, high: float = 10) -> float:
     return random.uniform(low, high)
 
 def insert_random_value(conn, value: float):
     with conn.cursor() as cur:
-        timestamp = datetime.now()
+        timestamp = datetime.now(timezone.utc)
         cur.execute("INSERT INTO random_values(value, timestamp) VALUES (%s, %s)", (value, timestamp,))
         print(f"Inserted value: {value:.2f}, {timestamp}")
         
