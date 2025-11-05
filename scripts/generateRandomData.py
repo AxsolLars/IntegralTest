@@ -1,4 +1,4 @@
-from scripts.connectToSnowflake import connect_to_snowflake
+from scripts.procedures.connectToSnowflake import connect_to_snowflake
 import time, random
 from datetime import datetime, timezone
 

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, date, time, timezone
 import random
-from scripts.connectToSnowflake import connect_to_snowflake
+from scripts.procedures.connectToSnowflake import connect_to_snowflake
 def seed_integral_sum_values(start_date: date, end_date: date, start_time: time, end_time: time, update_delta: int, gap_start: time = None, gap_end: time = None, gap_value: float = -1):
     conn = connect_to_snowflake()
     cursor = conn.cursor()
