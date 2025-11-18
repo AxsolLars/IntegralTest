@@ -1,6 +1,6 @@
 from snowflake.snowpark import Session, Row
 from datetime import timedelta
-from scripts.procedures.connectToSnowflake import create_session
+from scripts.connection.connectToSnowflake import create_session
 from collections import defaultdict
 updateTime = 30000
 def aggregate(session: Session, curr_timestamp, prev_timestamp, prev_value, last_sum, rows_to_insert: list):

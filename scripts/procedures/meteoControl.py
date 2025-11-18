@@ -1,6 +1,6 @@
 from snowflake.snowpark import Session, Row
 from datetime import timedelta
-from scripts.procedures.connectToSnowflake import create_session
+from scripts.connection.connectToSnowflake import create_session
 from collections import defaultdict
 updateTime = 30000
 def aggregate(session: Session, curr_timestamp, prev_timestamp, prev_value, last_sum, rows_to_insert: list):
@@ -57,7 +57,7 @@ def run(session: Session) -> str:
         SELECT COALESCE(cumulative_sum, 0) AS sum,
         value,
         timestamp
-        FROM power_export_sum
+        FROM power_production_sum
         ORDER BY timestamp DESC
         LIMIT 1
     """).collect()
@@ -105,8 +105,7 @@ def run(session: Session) -> str:
             curr_timestamp = new_value_row['TIMESTAMP']
             curr_value = 0.0
             if not prev_timestamp:
-                prev_timestamp = curr_timestamp - timedelta(milliseconds=updateTime)
-                continue 
+                prev_timestamp = curr_timestamp - timedelta(milliseconds=updateTime) 
             if new_value_row['VALUE']:
                 curr_value += new_value_row['VALUE']
 
@@ -119,8 +118,8 @@ def run(session: Session) -> str:
                 print(delta.total_seconds())
                 prev_timestamp = curr_timestamp
                 continue
-            factor = (-1) / 2  *  (delta.total_seconds() / 3600) # hours, averaged height, flipped sign
-            integral = (curr_value * (curr_value < 0) + prev_value * (prev_value < 0)) * factor # curr_value and prev_value gets nulled if if theye >= 0
+            factor =  2  *  (delta.total_seconds() / 3600) # hours, averaged height
+            integral = (curr_value * (curr_value > 0) + prev_value * (prev_value > 0)) * factor # curr_value and prev_value gets nulled if if theye < 0
             last_sum += integral
             prev_value = curr_value
             prev_timestamp = curr_timestamp

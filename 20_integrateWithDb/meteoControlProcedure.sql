@@ -10,8 +10,8 @@ AS
 $$
 from snowflake.snowpark import Session, Row
 from datetime import timedelta
-
-updateTime = 1000
+from collections import defaultdict
+updateTime = 30000
 def aggregate(session: Session, curr_timestamp, prev_timestamp, prev_value, last_sum, rows_to_insert: list):
     prev_time = prev_timestamp.time()
     curr_time = curr_timestamp.time()
@@ -21,7 +21,7 @@ def aggregate(session: Session, curr_timestamp, prev_timestamp, prev_value, last
             CAST(TIMESTAMP AS DATE) AS day,
             TIMESTAMP,
             CUMULATIVE_SUM
-        FROM BOK.POWER_PRODUCTION_SUM
+        FROM BOK.power_production_sum
         WHERE TO_TIME(TIMESTAMP)
             BETWEEN TO_TIME('{prev_time}') AND TO_TIME('{curr_time}')
         ),
@@ -45,19 +45,20 @@ def aggregate(session: Session, curr_timestamp, prev_timestamp, prev_value, last
         ORDER BY b.day;
     """
     ).collect()
-    aggregate_sum = 0
     print(window_data)
+    aggregate_sum = 0
     for window in window_data:
         aggregate_sum += window["UPPER_VALUE"] - window["LOWER_VALUE"]
-    if len(window_data) == 0:
-        return last_sum, 0, curr_timestamp + timedelta(minutes= 1)
-    aggregate_sum /= len(window_data)
+    if len(window_data) != 0:
+        aggregate_sum /= len(window_data)
     time_diff_ms = (curr_timestamp - prev_timestamp).total_seconds() * 1000
+    
+
     aggregate_integral = aggregate_sum / (time_diff_ms / updateTime)
-    while prev_timestamp <= curr_timestamp:
+    while prev_timestamp < curr_timestamp:
         prev_timestamp += timedelta(milliseconds= updateTime)
         last_sum += aggregate_integral
-        rows_to_insert.append(Row(TIMESTAMP=prev_timestamp, CUMULATIVE_SUM=last_sum, INTEGRAL=aggregate_integral, DELTA=updateTime /1000, VALUE=0.0))
+        rows_to_insert.append(Row(TIMESTAMP=prev_timestamp, CUMULATIVE_SUM=last_sum, INTEGRAL=aggregate_integral, DELTA=updateTime  / 1000, VALUE=0.0))
     return last_sum, 0, curr_timestamp
 
 def run(session: Session) -> str:
@@ -77,53 +78,72 @@ def run(session: Session) -> str:
         prev_value = prev_data[0]['VALUE']
         prev_timestamp = prev_data[0]['TIMESTAMP']
         
-    new_values = session.sql("""
-            SELECT timestamp, METER_EZA_1_AC_P as value1, METER_EZA_2_AC_P as value2, METER_EZA_3_AC_P as value3
+    rows = session.sql("""
+            SELECT 
+            CAST(timestamp as DATE) as day,
+            timestamp, 
+            METER_EZA_1_AC_P as VALUE1, METER_EZA_2_AC_P as VALUE2, METER_EZA_3_AC_P as VALUE3
             FROM power_production_stream
+            WHERE timestamp >= TO_TIMESTAMP_NTZ('2025-10-20 00:00:00')
             ORDER BY timestamp ASC
         """).collect()
+
+    clustered = defaultdict(list)
+    for row in rows:
+        curr_value = 0.0
+        if 'VALUE1' in row and row['VALUE1']:
+            curr_value += float(row['VALUE1'])
+        if 'VALUE2' in row and row['VALUE2']:
+            curr_value += float(row['VALUE2'])
+        if 'VALUE3' in row and row['VALUE3']:
+            curr_value += float(row['VALUE3'])
+        clustered[row["DAY"]].append({"TIMESTAMP": row["TIMESTAMP"], "VALUE": curr_value})
     
 
-    if not new_values:
+    if not clustered:
         return "no new data"
 
+    print(clustered.keys())
+
     
 
-    rows_to_insert = []
+     #needs to be changed according to the interval length, maybe hardocde average interval somewhere
+    for day in clustered.keys():
+        rows_to_insert = []
+        for new_value_row in clustered[day]:
+            curr_timestamp = new_value_row['TIMESTAMP']
+            curr_value = 0.0
+            if not prev_timestamp:
+                prev_timestamp = curr_timestamp - timedelta(milliseconds=updateTime) 
+            if new_value_row['VALUE']:
+                curr_value += new_value_row['VALUE']
 
-    if not prev_timestamp:
-        prev_timestamp = new_values[0]['TIMESTAMP'] - timedelta(milliseconds=updateTime) #needs to be changed according to the interval length, maybe hardocde average interval somewhere
+            delta = curr_timestamp - prev_timestamp
+            if delta.total_seconds() < 0:
+                print(new_value_row)
+                print(prev_timestamp, prev_value)
+            if delta.total_seconds() * 1000 > 2 * updateTime: # should be only 2 with adequate data quality
+                last_sum, prev_value, prev_timestamp = aggregate(session, curr_timestamp, prev_timestamp, prev_value, last_sum, rows_to_insert)
+                print(delta.total_seconds())
+                prev_timestamp = curr_timestamp
+                continue
+            factor =  2  *  (delta.total_seconds() / 3600) # hours, averaged height
+            integral = (curr_value * (curr_value > 0) + prev_value * (prev_value > 0)) * factor # curr_value and prev_value gets nulled if if theye < 0
+            last_sum += integral
+            prev_value = curr_value
+            prev_timestamp = curr_timestamp
 
-    for new_value_row in new_values:
-        curr_timestamp = new_value_row['TIMESTAMP']
-        curr_value = 0.0
-        if new_value_row['VALUE1']:
-            curr_value += float(new_value_row['VALUE1'])
-        if new_value_row['VALUE2']:
-            curr_value += float(new_value_row['VALUE1'])
-        if new_value_row['Value3']:
-            curr_value += float(new_value_row['VALUE1'])
+            timestamp_string = curr_timestamp.isoformat(sep=' ', timespec='microseconds')
+            rows_to_insert.append(Row(TIMESTAMP=curr_timestamp, CUMULATIVE_SUM=last_sum, INTEGRAL=integral, DELTA=delta.total_seconds(), VALUE=curr_value))
 
-        delta = curr_timestamp - prev_timestamp
-        if delta.total_seconds() * 1000 > 2 * updateTime:
-            last_sum, prev_value, prev_timestamp = aggregate(session, curr_timestamp, prev_timestamp, prev_value, last_sum, rows_to_insert)
-            continue
-        factor = (-1) / 2  *  (delta.total_seconds() / 3600) # hours, averaged height, flipped sign
-        integral = (curr_value * (curr_value > 0) + prev_value * (prev_value > 0) ) * factor # curr_value and prev_value gets nulled if if they are <= 0
-        last_sum += integral
-        prev_value = curr_value
-        prev_timestamp = curr_timestamp
 
-        timestamp_string = curr_timestamp.isoformat(sep=' ', timespec='microseconds')
-        rows_to_insert.append(Row(TIMESTAMP=curr_timestamp, CUMULATIVE_SUM=last_sum, INTEGRAL=integral, DELTA=delta.total_seconds(), VALUE=curr_value))
-
-    if rows_to_insert:
-        df = session.create_dataframe(rows_to_insert)
-        df.write.save_as_table("power_production_sum", mode="append")
-        session.sql("""
-            INSERT INTO stream_consumed_marker (processed_at, row_count)
-            SELECT CURRENT_TIMESTAMP, COUNT(*)
-            FROM power_production_stream
-        """).collect()
+        if rows_to_insert:
+            df = session.create_dataframe(rows_to_insert)
+            df.write.save_as_table("power_production_sum", mode="append")
+            session.sql("""
+                INSERT INTO stream_consumed_marker (processed_at, row_count)
+                SELECT CURRENT_TIMESTAMP, COUNT(*)
+                FROM power_production_stream
+            """).collect()
     return "ok"
 $$;

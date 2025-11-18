@@ -31,7 +31,7 @@ def create_session():
     cfg["private_key"] = private_key
     return Session.builder.configs(cfg).create()
 
-def connect_to_snowflake():
+def connect_to_testing():
     cfg = load_config("testing")
     p_key = get_private_key(cfg["private_key_path"])
     return snowflake.connector.connect(
@@ -44,7 +44,19 @@ def connect_to_snowflake():
         private_key=p_key
     )
     
+def connect_to_bok():
+    cfg = load_config("dev-bok")
+    p_key = get_private_key(cfg["private_key_path"])
+    return snowflake.connector.connect(
+        user=cfg["user"],
+        account=cfg["account"],
+        warehouse=cfg["warehouse"],
+        database=cfg["database"],
+        schema=cfg["schema"],
+        role=cfg["role"],
+        private_key=p_key
+    )
 if __name__ == "__main__":
-    conn = connect_to_snowflake()
+    conn = connect_to_testing()
     print("✅ Successfully connected to Snowflake as", conn.user)
     conn.close()
