@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, date, time, timezone
 import random
-from scripts.connectToSnowflake import connect_to_snowflake
+from scripts.connection.connectToSnowflake import connect_to_testing
 def seed_random_values_with_gap(start_date: date, end_date: date, start_time: time, end_time: time, update_delta: int, gap_start: time, gap_end: time):
-    conn = connect_to_snowflake()
+    conn = connect_to_testing()
     cursor = conn.cursor()
     print("Connected to Snowflake")
     try:

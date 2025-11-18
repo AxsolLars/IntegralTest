@@ -1,8 +1,17 @@
-[connection]
+[testing]
 user = "svc_test_etl"
 account = "OSCGTUT-OK42230"
 warehouse = "COMPUTE_WH"
 database = "TESTING_DB"
 schema = "INTEGRAL_TEST"
 role = "role_test_etl"
+private_key_path = "/home/Lars/snowflake_keys/rsa_key_private.pem"
+
+[dev-bok]
+user = "svc_test_etl"
+account = "OSCGTUT-OK42230"
+warehouse = "COMPUTE_WH"
+database = "AXSOL_DB_DEV"
+schema = "BOK"
+role = "role_axsol_etl"
 private_key_path = "/home/Lars/snowflake_keys/rsa_key_private.pem"

@@ -1,4 +1,4 @@
-from scripts.connectToSnowflake import connect_to_snowflake
+from scripts.connection.connectToSnowflake import connect_to_testing
 import time, random
 from datetime import datetime, timezone
 
@@ -12,7 +12,7 @@ def insert_random_value(conn, value: float):
         print(f"Inserted value: {value:.2f}, {timestamp}")
         
 def main(interval: float = 1.0):
-    conn = connect_to_snowflake()
+    conn = connect_to_testing()
     print("Connected to Snowflake")
     print("Generating random values every", interval, "seconds")
     
